@@ -1,0 +1,146 @@
+<body>
+  <canvas id="canvas" width=512 height=512></canvas>
+</body>
+
+<script>
+  const regexLineTitle = /^TITLE "(.*)"$/m;
+  const regexLineSize = /^LUT_3D_SIZE (\d+)$/m;
+  const regexLineValue = /^([\d\.Ee-]+) ([\d\.Ee-]+) ([\d\.Ee-]+)$/;
+
+  function lerp( a, b, t ) {
+    return b * t + a * ( 1.0 - t );
+  }
+
+  class LUTCube {
+    /**
+     * @param {number} size
+     * @param {Float32Array} array
+     */
+    constructor( size, array ) {
+      this.size = size;
+      this.array = array;
+    }
+
+    __lookup( ir, ig, ib ) {
+      const index = 3 * ( ir + this.size * ( ig + this.size * ib ) );
+      return this.array.subarray( index, index + 3 );
+    }
+
+    /**
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    lookupNearest( r, g, b ) {
+      const ir = Math.round( r * ( this.size - 1 ) );
+      const ig = Math.round( g * ( this.size - 1 ) );
+      const ib = Math.round( b * ( this.size - 1 ) );
+      return this.__lookup( ir, ig, ib );
+    }
+
+    /**
+     * @param {number} r
+     * @param {number} g
+     * @param {number} b
+     */
+    lookupLinear( r, g, b ) {
+      const ir = Math.floor( r * ( this.size - 2 ) );
+      const ig = Math.floor( g * ( this.size - 2 ) );
+      const ib = Math.floor( b * ( this.size - 2 ) );
+      const fr = ( r * ( this.size - 2 ) ) % 1.0;
+      const fg = ( g * ( this.size - 2 ) ) % 1.0;
+      const fb = ( b * ( this.size - 2 ) ) % 1.0;
+      const v000 = this.__lookup( ir, ig, ib );
+      const v001 = this.__lookup( ir, ig, ib + 1 );
+      const v010 = this.__lookup( ir, ig + 1, ib );
+      const v011 = this.__lookup( ir, ig + 1, ib + 1 );
+      const v100 = this.__lookup( ir + 1, ig, ib );
+      const v101 = this.__lookup( ir + 1, ig, ib + 1 );
+      const v110 = this.__lookup( ir + 1, ig + 1, ib );
+      const v111 = this.__lookup( ir + 1, ig + 1, ib + 1 );
+      return v000.map( ( v, i ) => (
+        lerp(
+          lerp(
+            lerp( v000[ i ], v001[ i ], fb ),
+            lerp( v010[ i ], v011[ i ], fb ),
+            fg
+          ),
+          lerp(
+            lerp( v100[ i ], v101[ i ], fb ),
+            lerp( v110[ i ], v111[ i ], fb ),
+            fg
+          ),
+          fr
+        )
+      ) );
+    }
+  }
+
+  /**
+   * @param {LUTCube} lut
+   * @param {Canvas​Rendering​Context2D} ctx
+   */
+  function fillLUTOnCanvas( lut, ctx ) {
+    const data = ctx.getImageData( 0, 0, 512, 512 );
+
+    for ( ir = 0; ir < 64; ir ++ ) {
+      for ( ig = 0; ig < 64; ig ++ ) {
+        for ( ib = 0; ib < 64; ib ++ ) {
+          const x = ir + ( ib % 8 ) * 64;
+          const y = 511 - ( ig + Math.floor( ib / 8 ) * 64 );
+          const value = lut.lookupLinear( ir / 63.0, ig / 63.0, ib / 63.0 );
+          data.data[ 4 * ( x + 512 * y ) + 0 ] = Math.round( 255.0 * value[ 0 ] );
+          data.data[ 4 * ( x + 512 * y ) + 1 ] = Math.round( 255.0 * value[ 1 ] );
+          data.data[ 4 * ( x + 512 * y ) + 2 ] = Math.round( 255.0 * value[ 2 ] );
+          data.data[ 4 * ( x + 512 * y ) + 3 ] = 255;
+        }
+      }
+    }
+
+    ctx.putImageData( data, 0, 0 );
+  }
+
+  /**
+   * @param {string} str
+   */
+  function parseLUTCube( str ) {
+    const resultTitle = regexLineTitle.exec( str );
+    const title = resultTitle ? resultTitle[ 1 ] : '';
+
+    const resultSize = regexLineSize.exec( str );
+    const size = resultSize ? parseInt( resultSize[ 1 ] ) : 32;
+
+    const lines = str.replace( /\r/g, '' ).split( '\n' );
+    let index = 0;
+
+    while ( !regexLineValue.test( lines[ index ] ) ) { index ++; }
+    lines.splice( 0, index );
+    lines.splice( size * size * size );
+
+    const array = new Float32Array( 3 * size * size * size );
+    lines.forEach( ( line, i ) => {
+      const result = regexLineValue.exec( line );
+      array[ i * 3 + 0 ] = parseFloat( result[ 1 ] );
+      array[ i * 3 + 1 ] = parseFloat( result[ 2 ] );
+      array[ i * 3 + 2 ] = parseFloat( result[ 3 ] );
+    } );
+    return new LUTCube( size, array );
+  }
+
+  // == event listeners ============================================================================
+  window.addEventListener( 'dragover', ( event ) => {
+    event.preventDefault();
+  } );
+
+  window.addEventListener( 'drop', ( event ) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files[ 0 ];
+    const reader = new FileReader();
+    reader.onload = ( event ) => {
+      const lutCube = parseLUTCube( reader.result );
+      const ctx = canvas.getContext( '2d' );
+      fillLUTOnCanvas( lutCube, ctx );
+    };
+    reader.readAsText( file );
+  } );
+</script>
