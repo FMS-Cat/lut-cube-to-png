@@ -11,6 +11,12 @@
     return b * t + a * ( 1.0 - t );
   }
 
+  function safeLerp( a, b, t ) {
+    if ( t === 0.0 ) { return a; }
+    if ( t === 1.0 ) { return b; }
+    return lerp( a, b, t );
+  }
+
   class LUTCube {
     /**
      * @param {number} size
@@ -44,12 +50,12 @@
      * @param {number} b
      */
     lookupLinear( r, g, b ) {
-      const ir = Math.floor( r * ( this.size - 2 ) );
-      const ig = Math.floor( g * ( this.size - 2 ) );
-      const ib = Math.floor( b * ( this.size - 2 ) );
-      const fr = ( r * ( this.size - 2 ) ) % 1.0;
-      const fg = ( g * ( this.size - 2 ) ) % 1.0;
-      const fb = ( b * ( this.size - 2 ) ) % 1.0;
+      const ir = Math.floor( r * ( this.size - 1 ) );
+      const ig = Math.floor( g * ( this.size - 1 ) );
+      const ib = Math.floor( b * ( this.size - 1 ) );
+      const fr = ( r * ( this.size - 1 ) ) % 1.0;
+      const fg = ( g * ( this.size - 1 ) ) % 1.0;
+      const fb = ( b * ( this.size - 1 ) ) % 1.0;
       const v000 = this.__lookup( ir, ig, ib );
       const v001 = this.__lookup( ir, ig, ib + 1 );
       const v010 = this.__lookup( ir, ig + 1, ib );
@@ -59,15 +65,15 @@
       const v110 = this.__lookup( ir + 1, ig + 1, ib );
       const v111 = this.__lookup( ir + 1, ig + 1, ib + 1 );
       return v000.map( ( v, i ) => (
-        lerp(
-          lerp(
-            lerp( v000[ i ], v001[ i ], fb ),
-            lerp( v010[ i ], v011[ i ], fb ),
+        safeLerp(
+          safeLerp(
+            safeLerp( v000[ i ], v001[ i ], fb ),
+            safeLerp( v010[ i ], v011[ i ], fb ),
             fg
           ),
-          lerp(
-            lerp( v100[ i ], v101[ i ], fb ),
-            lerp( v110[ i ], v111[ i ], fb ),
+          safeLerp(
+            safeLerp( v100[ i ], v101[ i ], fb ),
+            safeLerp( v110[ i ], v111[ i ], fb ),
             fg
           ),
           fr
