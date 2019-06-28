@@ -1,5 +1,5 @@
 <body>
-  <canvas id="canvas" width=512 height=512></canvas>
+  <canvas id="canvas" width=1024 height=32></canvas>
 </body>
 
 <script>
@@ -87,18 +87,18 @@
    * @param {Canvas​Rendering​Context2D} ctx
    */
   function fillLUTOnCanvas( lut, ctx ) {
-    const data = ctx.getImageData( 0, 0, 512, 512 );
+    const data = ctx.getImageData( 0, 0, 1024, 32 );
 
-    for ( ir = 0; ir < 64; ir ++ ) {
-      for ( ig = 0; ig < 64; ig ++ ) {
-        for ( ib = 0; ib < 64; ib ++ ) {
-          const x = ir + ( ib % 8 ) * 64;
-          const y = 511 - ( ig + Math.floor( ib / 8 ) * 64 );
-          const value = lut.lookupLinear( ir / 63.0, ig / 63.0, ib / 63.0 );
-          data.data[ 4 * ( x + 512 * y ) + 0 ] = Math.round( 255.0 * value[ 0 ] );
-          data.data[ 4 * ( x + 512 * y ) + 1 ] = Math.round( 255.0 * value[ 1 ] );
-          data.data[ 4 * ( x + 512 * y ) + 2 ] = Math.round( 255.0 * value[ 2 ] );
-          data.data[ 4 * ( x + 512 * y ) + 3 ] = 255;
+    for ( ir = 0; ir < 32; ir ++ ) {
+      for ( ig = 0; ig < 32; ig ++ ) {
+        for ( ib = 0; ib < 32; ib ++ ) {
+          const x = ir + ib * 32;
+          const y = 31 - ig;
+          const value = lut.lookupLinear( ir / 31.0, ig / 31.0, ib / 31.0 );
+          data.data[ 4 * ( x + 1024 * y ) + 0 ] = Math.round( 255.0 * value[ 0 ] );
+          data.data[ 4 * ( x + 1024 * y ) + 1 ] = Math.round( 255.0 * value[ 1 ] );
+          data.data[ 4 * ( x + 1024 * y ) + 2 ] = Math.round( 255.0 * value[ 2 ] );
+          data.data[ 4 * ( x + 1024 * y ) + 3 ] = 255;
         }
       }
     }
